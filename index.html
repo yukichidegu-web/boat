@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ボートレース 2連単 一点判定</title>
+
+<style>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #f2f2f2;
+  margin: 0;
+  padding: 12px;
+}
+.container {
+  background: #fff;
+  padding: 15px;
+  border-radius: 10px;
+}
+h2 {
+  text-align: center;
+}
+label {
+  display: block;
+  margin-top: 10px;
+  font-weight: bold;
+}
+input {
+  width: 100%;
+  padding: 8px;
+  font-size: 16px;
+}
+button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 15px;
+  font-size: 16px;
+  border: none;
+  border-radius: 6px;
+}
+#judgeBtn {
+  background: #007aff;
+  color: #fff;
+}
+#clearBtn {
+  background: #ccc;
+}
+.result {
+  margin-top: 15px;
+  padding: 12px;
+  border-radius: 6px;
+  text-align: center;
+  font-size: 16px;
+}
+.buy {
+  background: #e6ffe6;
+  color: #006600;
+}
+.skip {
+  background: #ffe6e6;
+  color: #990000;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+<h2>2連単 一点購入 判定</h2>
+
+<p><b>対象場：</b>大村 / 徳山 / 芦屋 / 下関 / 常滑</p>
+
+<label>①号艇 ST</label>
+<input id="st1" type="number" step="0.01" placeholder="例：0.16">
+
+<label>①号艇 展示タイム</label>
+<input id="time1" type="number" step="0.01" placeholder="例：6.72">
+
+<label>最速展示タイム</label>
+<input id="bestTime" type="number" step="0.01" placeholder="例：6.66">
+
+<label>買いたい2連単オッズ（1点）</label>
+<input id="odds" type="number" step="0.1" placeholder="例：5.8">
+
+<button id="judgeBtn" onclick="judge()">判定する</button>
+<button id="clearBtn" onclick="clearAll()">クリア</button>
+
+<div id="output"></div>
+</div>
+
+<script>
+function judge() {
+  const st1 = parseFloat(document.getElementById("st1").value);
+  const time1 = parseFloat(document.getElementById("time1").value);
+  const bestTime = parseFloat(document.getElementById("bestTime").value);
+  const odds = parseFloat(document.getElementById("odds").value);
+  const output = document.getElementById("output");
+
+  // 入力チェック
+  if (isNaN(st1) || isNaN(time1) || isNaN(bestTime) || isNaN(odds)) {
+    output.innerHTML = `<div class="result skip">入力不足</div>`;
+    return;
+  }
+
+  // 展示タイム差
+  const timeDiff = time1 - bestTime;
+
+  // 展示で切る条件
+  if (timeDiff >= 0.10) {
+    output.innerHTML = `<div class="result skip">
+      SKIP<br>①号艇 展示タイム劣勢（+${timeDiff.toFixed(2)}）
+    </div>`;
+    return;
+  }
+
+  // STで切る条件
+  if (st1 >= 0.19) {
+    output.innerHTML = `<div class="result skip">
+      SKIP<br>①号艇 STが遅い
+    </div>`;
+    return;
+  }
+
+  // オッズ許容ライン計算
+  let requiredOdds = 4.5;
+
+  if (st1 >= 0.16) requiredOdds = 5.0;
+  if (st1 >= 0.18) requiredOdds = 5.5;
+
+  // 期待勝率（簡易）
+  let winRate = 0.33;
+  if (st1 >= 0.16) winRate = 0.30;
+  if (st1 >= 0.18) winRate = 0.27;
+
+  const expectedValue = (odds * winRate - 1).toFixed(2);
+
+  if (odds >= requiredOdds && expectedValue > 0) {
+    output.innerHTML = `<div class="result buy">
+      BUY<br>
+      必要オッズ：${requiredOdds.toFixed(1)}以上<br>
+      期待値：+${expectedValue}
+    </div>`;
+  } else {
+    output.innerHTML = `<div class="result skip">
+      SKIP<br>
+      必要オッズ：${requiredOdds.toFixed(1)}以上<br>
+      期待値：${expectedValue}
+    </div>`;
+  }
+}
+
+function clearAll() {
+  document.querySelectorAll("input").forEach(i => i.value = "");
+  document.getElementById("output").innerHTML = "";
+}
+</script>
+</body>
+</html>
