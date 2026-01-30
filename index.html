@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ボートレース 完全版・必要オッズ判定</title>
+<style>
+body{
+  font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+  background:#f2f2f2;
+  margin:0;
+  padding:10px;
+}
+select,textarea,button{
+  width:100%;
+  font-size:16px;
+  padding:10px;
+  margin-top:10px;
+}
+button{ font-weight:bold; margin-top:5px; }
+.result{
+  background:#fff;
+  border-radius:10px;
+  padding:14px;
+  margin-top:14px;
+}
+.buy{ color:#d60000; font-weight:bold; }
+.skip{ color:#666; font-weight:bold; }
+small{ color:#666; }
+</style>
+</head>
+<body>
+
+<h3>開催場</h3>
+<select id="place"></select>
+
+<h3>ST・展示（貼り付け）</h3>
+<textarea id="input" placeholder=".17 6.73"></textarea>
+
+<button onclick="calc()">判定する</button>
+<button onclick="clearAll()">クリア</button>
+
+<div id="out"></div>
+
+<script>
+// ▼ 全24場対応・場所係数
+const placeCoef = {
+  "桐生":{st:1.2,ex:1.0,in:1.1},
+  "戸田":{st:1.3,ex:0.9,in:0.8},
+  "江戸川":{st:1.4,ex:0.8,in:0.7},
+  "平和島":{st:1.1,ex:1.0,in:1.0},
+  "多摩川":{st:1.0,ex:1.2,in:1.1},
+  "浜名湖":{st:1.0,ex:1.1,in:1.1},
+  "蒲郡":{st:1.0,ex:1.2,in:1.2},
+  "常滑":{st:1.0,ex:1.1,in:1.2},
+  "津":{st:1.1,ex:1.0,in:1.0},
+  "三国":{st:1.1,ex:1.0,in:1.1},
+  "びわこ":{st:1.2,ex:0.9,in:0.9},
+  "住之江":{st:1.2,ex:1.0,in:1.0},
+  "尼崎":{st:1.0,ex:1.1,in:1.1},
+  "鳴門":{st:1.2,ex:0.9,in:0.9},
+  "丸亀":{st:1.1,ex:1.1,in:1.2},
+  "児島":{st:1.0,ex:1.1,in:1.1},
+  "宮島":{st:1.1,ex:1.0,in:1.1},
+  "徳山":{st:1.1,ex:1.0,in:1.2},
+  "下関":{st:1.1,ex:1.0,in:1.1},
+  "若松":{st:1.2,ex:1.0,in:1.1},
+  "芦屋":{st:1.0,ex:1.1,in:1.2},
+  "福岡":{st:1.1,ex:1.0,in:1.1},
+  "唐津":{st:1.0,ex:1.1,in:1.1},
+  "大村":{st:1.0,ex:1.2,in:1.3}
+};
+
+// ▼ セレクトに全場追加
+const sel=document.getElementById("place");
+Object.keys(placeCoef).forEach(p=>{
+  const o=document.createElement("option");
+  o.textContent=p;
+  sel.appendChild(o);
+});
+
+function calc(){
+  const place=sel.value;
+  const coef=placeCoef[place];
+  const raw=document.getElementById("input").value
+    .split("\n").map(l=>l.trim()).filter(l=>l);
+
+  if(raw.length!==6){
+    alert("6艇分入力してください");
+    return;
+  }
+
+  let boats=raw.map((l,i)=>{
+    let [st,ex]=l.replace("F","").split(/\s+/).map(Number);
+    return {no:i+1,st,ex};
+  });
+
+  // 順位計算
+  const stS=[...boats].sort((a,b)=>a.st-b.st);
+  const exS=[...boats].sort((a,b)=>a.ex-b.ex);
+  boats.forEach(b=>{
+    b.stRank=stS.findIndex(x=>x.no===b.no)+1;
+    b.exRank=exS.findIndex(x=>x.no===b.no)+1;
+    b.score=(1/b.st)*coef.st*0.6+(1/b.ex)*coef.ex*0.4+(b.no===1?coef.in:1)*0.2;
+  });
+
+  const minEx=Math.min(...boats.map(b=>b.ex));
+  let axis;
+
+  // イン強制
+  if(boats[0].stRank===1 && Math.abs(boats[0].ex-minEx)<=0.05){
+    axis=boats[0];
+  }else{
+    let c=boats.filter(b=>b.no>=4?(b.stRank<=2&&b.exRank===1):(b.stRank<=2||b.exRank===1));
+    if(!c.length){
+      out.innerHTML=`<div class="result"><div class="skip">▶ SKIP</div></div>`;
+      return;
+    }
+    c.sort((a,b)=>b.score-a.score);
+    axis=c[0];
+  }
+
+  let others=boats.filter(b=>b.no!==axis.no).sort((a,b)=>b.score-a.score).slice(0,3);
+  const total=boats.reduce((s,b)=>s+b.score,0);
+
+  let sumP=0;
+  let html=`<div class="result"><div class="buy">▶ BUY</div>`;
+  html+=`軸：${axis.no}号艇（${place}）<br><br>`;
+  html+=`買い目（2連単）<br>`;
+
+  others.forEach(o=>{
+    const p=(axis.score/total)*(o.score/(total-axis.score));
+    sumP+=p;
+    html+=`${axis.no}-${o.no}（${(p*100).toFixed(1)}% ｜ ${(1/p).toFixed(1)}倍以上）<br>`;
+  });
+
+  html+=`<br>合算的中率：${(sumP*100).toFixed(1)}%<br>`;
+  html+=`セット必要平均オッズ：${(1/sumP).toFixed(1)}倍</div>`;
+
+  out.innerHTML=html;
+}
+
+// ▼ クリアボタン
+function clearAll(){
+  document.getElementById("input").value="";
+  document.getElementById("out").innerHTML="";
+}
+</script>
+
+</body>
+</html>
